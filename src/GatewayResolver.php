@@ -2,21 +2,26 @@
 
 namespace Larabookir\Gateway;
 
-use Larabookir\Gateway\Irankish\Irankish;
-use Larabookir\Gateway\Parsian\Parsian;
-use Larabookir\Gateway\Paypal\Paypal;
-use Larabookir\Gateway\Sadad\Sadad;
-use Larabookir\Gateway\Mellat\Mellat;
-use Larabookir\Gateway\Pasargad\Pasargad;
-use Larabookir\Gateway\Saman\Saman;
-use Larabookir\Gateway\Asanpardakht\Asanpardakht;
-use Larabookir\Gateway\Zarinpal\Zarinpal;
+use stdClass;
+use App\GatewayConfig;
+use Illuminate\Support\Facades\DB;
+use Larabookir\Gateway\Models\User;
 use Larabookir\Gateway\Payir\Payir;
+use Larabookir\Gateway\Sadad\Sadad;
+use Larabookir\Gateway\Saman\Saman;
+use Larabookir\Gateway\Mellat\Mellat;
+use Larabookir\Gateway\Paypal\Paypal;
+use Larabookir\Gateway\Parsian\Parsian;
+use Larabookir\Gateway\Irankish\Irankish;
+use Larabookir\Gateway\Pasargad\Pasargad;
+use Larabookir\Gateway\Zarinpal\Zarinpal;
+use Larabookir\Gateway\Exceptions\UserBadType;
+use Larabookir\Gateway\Asanpardakht\Asanpardakht;
 use Larabookir\Gateway\Exceptions\RetryException;
 use Larabookir\Gateway\Exceptions\PortNotFoundException;
 use Larabookir\Gateway\Exceptions\InvalidRequestException;
+use Larabookir\Gateway\Exceptions\UserDoesNotExistsException;
 use Larabookir\Gateway\Exceptions\NotFoundTransactionException;
-use Illuminate\Support\Facades\DB;
 
 class GatewayResolver
 {
@@ -126,41 +131,69 @@ class GatewayResolver
 	 * @param int $port
 	 * @throws PortNotFoundException
 	 */
-	function make($port)
+    function make($port, int|object $user)
     {
-        if ($port InstanceOf Mellat) {
+        if ($port instanceof Mellat) {
             $name = Enum::MELLAT;
-        } elseif ($port InstanceOf Parsian) {
+        } elseif ($port instanceof Parsian) {
             $name = Enum::PARSIAN;
-        } elseif ($port InstanceOf Saman) {
+        } elseif ($port instanceof Saman) {
             $name = Enum::SAMAN;
-        } elseif ($port InstanceOf Zarinpal) {
+        } elseif ($port instanceof Zarinpal) {
             $name = Enum::ZARINPAL;
-        } elseif ($port InstanceOf Sadad) {
+        } elseif ($port instanceof Sadad) {
             $name = Enum::SADAD;
-        } elseif ($port InstanceOf Asanpardakht) {
+        } elseif ($port instanceof Asanpardakht) {
             $name = Enum::ASANPARDAKHT;
-        } elseif ($port InstanceOf Paypal) {
+        } elseif ($port instanceof Paypal) {
             $name = Enum::PAYPAL;
-        } elseif ($port InstanceOf Payir) {
+        } elseif ($port instanceof Payir) {
             $name = Enum::PAYIR;
-        } elseif ($port InstanceOf Pasargad) {
+        } elseif ($port instanceof Pasargad) {
             $name = Enum::PASARGAD;
-        } elseif ($port InstanceOf Irankish) {
+        } elseif ($port instanceof Irankish) {
             $name = Enum::IRANKISH;
         } elseif (in_array(strtoupper($port), $this->getSupportedPorts())) {
             $port = ucfirst(strtolower($port));
             $name = strtoupper($port);
             $class = __NAMESPACE__ . '\\' . $port . '\\' . $port;
             $port = new $class;
-        } else
-            throw new PortNotFoundException;
+        }
+            // } else {
+        //     throw new PortNotFoundException;
+        // }
+
+        $where = [];
+        if($port == null or $port == '')
+        {
+            $where = [
+                ['user_id', '=', is_int($user) ? $user : $user->id]
+            ];
+        }else{
+            $where = [
+                ['name', '=', strtolower($name)],
+                ['user_id', '=', is_int($user) ? $user : $user->id]
+            ];
+        }
+
+		$gateways = GatewayConfig::where($where)->get();
 
         $this->port = $port;
-        $this->port->setConfig($this->config); // injects config
+
+        if(count($gateways) >= 2)
+        {
+            foreach($gateways as $gateway)
+            {
+                $this->port->setConfig(json_decode($gateway->configs, true)); // injects config
+            }
+        }else{
+            $this->port->setConfig(json_decode($gateways[0]->configs, true)); // injects config
+        }
+
         $this->port->setPortName($name); // injects config
         $this->port->boot();
 
         return $this;
-    }
+	}
+
 }

@@ -22,9 +22,9 @@ class GatewayServiceProviderLaravel6 extends ServiceProvider
 	public function boot()
 	{
         $config = __DIR__ . '/../config/gateway.php';
-        $migrations = __DIR__ . '/../migrations/';
+        $migrations = __DIR__ . '/../database/migrations/';
         $views = __DIR__ . '/../views/';
-
+        // $models = __DIR__ . '/../app/';
         //php artisan vendor:publish --provider=Larabookir\Gateway\GatewayServiceProvider --tag=config
         $this->publishes([
             $config => config_path('gateway.php'),
@@ -34,8 +34,9 @@ class GatewayServiceProviderLaravel6 extends ServiceProvider
         // php artisan vendor:publish --provider=Larabookir\Gateway\GatewayServiceProvider --tag=migrations
         $this->publishes([
             $migrations => base_path('database/migrations')
-        ], 'migrations');
+		], 'migrations');
 
+		$this->loadMigrationsFrom($migrations);
 
         $this->loadViewsFrom($views, 'gateway');
 
@@ -45,6 +46,10 @@ class GatewayServiceProviderLaravel6 extends ServiceProvider
         ], 'views');
 
         //$this->mergeConfigFrom( $config,'gateway')
+
+        // $this->publishes([
+        //     $models => base_path('app/'),
+        // ]);
 	}
 
 	/**
